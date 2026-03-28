@@ -1,6 +1,4 @@
-#include "Course.h"
-#include <iostream>
-using namespace std;
+#include "course.h"
 
 Course::Course(int id, string name, double g)
 {
@@ -9,24 +7,24 @@ Course::Course(int id, string name, double g)
     grade = g;
 }
 
-int Course::getId() const 
-{ 
-    return courseId; 
+int Course::getId() const
+{
+    return courseId;
 }
 
-string Course::getName() const 
-{ 
-    return courseName; 
+string Course::getName() const
+{
+    return courseName;
 }
 
-double Course::getGrade() const 
-{ 
-    return grade; 
+double Course::getGrade() const
+{
+    return grade;
 }
 
-void Course::setGrade(double g) 
-{ 
-    grade = g; 
+void Course::setGrade(double g)
+{
+    grade = g;
 }
 
 void Course::display() const
@@ -34,4 +32,9 @@ void Course::display() const
     cout << "Course ID: " << courseId
         << " Name: " << courseName
         << " Grade: " << grade << endl;
+}
+
+bool Course::operator<(const Course& other) const
+{
+    return courseId < other.courseId;
 }

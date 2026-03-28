@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
-#include <string>
+
 using namespace std;
 
 Student::Student(int id, string name) : Person(name)
@@ -11,35 +11,48 @@ Student::Student(int id, string name) : Person(name)
     this->id = id;
 }
 
-int Student::getId() const { return id; }
+int Student::getId() const
+{
+    return id;
+}
 
 double Student::getGpa() const
 {
     if (courses.empty()) return 0;
+
     double sum = 0;
-    for (auto& c : courses) sum += c.getGrade();
+
+    for (auto& c : courses)
+        sum += c.getGrade();
+
     return sum / courses.size();
 }
 
 void Student::addCourse(int cid, string cname, double grade)
 {
-    for (auto& c : courses)
+    Course newCourse(cid, cname, grade);
+
+    auto result = courses.insert(newCourse);
+
+    if (!result.second)
     {
-        if (c.getId() == cid)
-        {
-            c.setGrade(grade);
-            cout << "Course already exists. Grade updated to " << grade << endl;
-            return;
-        }
+        courses.erase(newCourse);
+        courses.insert(Course(cid, cname, grade));
+        cout << "Course already exists. Grade updated\n";
     }
-    courses.push_back(Course(cid, cname, grade));
-    cout << "Course added\n";
+    else
+    {
+        cout << "Course added\n";
+    }
 }
 
 void Student::display() const
 {
-    cout << "ID: " << id << " Name: " << name
-        << " GPA: " << fixed << setprecision(2) << getGpa() << endl;
+    cout << "ID: " << id
+        << " Name: " << name
+        << " GPA: " << fixed << setprecision(2)
+        << getGpa() << endl;
+
     for (auto& c : courses)
     {
         cout << "\t";
@@ -49,9 +62,11 @@ void Student::display() const
 
 Student* Student::searchStudent(int sid)
 {
-    for (auto& s : students)
-        if (s.getId() == sid)
-            return &s;
+    auto it = students.find(sid);
+
+    if (it != students.end())
+        return &it->second;
+
     return nullptr;
 }
 
@@ -59,10 +74,11 @@ void Student::addStudent()
 {
     int id;
     string name;
+
     cout << "Enter ID: ";
     cin >> id;
 
-    if (searchStudent(id))
+    if (students.find(id) != students.end())
     {
         cout << "ID already exists\n";
         return;
@@ -72,7 +88,8 @@ void Student::addStudent()
     cin.ignore();
     getline(cin, name);
 
-    students.push_back(Student(id, name));
+    students[id] = Student(id, name);
+
     cout << "Student added\n";
 }
 
@@ -82,16 +99,10 @@ void Student::removeStudent()
     cout << "Enter ID: ";
     cin >> id;
 
-    for (size_t i = 0; i < students.size(); i++)
-    {
-        if (students[i].getId() == id)
-        {
-            students.erase(students.begin() + i);
-            cout << "Student removed\n";
-            return;
-        }
-    }
-    cout << "Student not found\n";
+    if (students.erase(id))
+        cout << "Student removed\n";
+    else
+        cout << "Student not found\n";
 }
 
 void Student::displayAll()
@@ -101,10 +112,11 @@ void Student::displayAll()
         cout << "No students available\n";
         return;
     }
-    for (auto& s : students)
+
+    for (auto& pair : students)
     {
-        s.display();
-        cout << "\n";
+        pair.second.display();
+        cout << endl;
     }
 }
 
@@ -115,6 +127,7 @@ void Student::enrollCourse()
     cin >> id;
 
     Student* s = searchStudent(id);
+
     if (!s)
     {
         cout << "Student not found\n";
@@ -127,100 +140,78 @@ void Student::enrollCourse()
 
     string cname;
 
-    auto it = find_if(s->courses.begin(), s->courses.end(),
-        [cid](const Course& c) { return c.getId() == cid; });
-
-    if (it != s->courses.end())
+    for (auto& pair : students)
     {
-        cname = it->getName();
-        cout << "Course already exists for this student. Current name: " << cname << endl;
+        for (auto& c : pair.second.courses)
+        {
+            if (c.getId() == cid)
+                cname = c.getName();
+        }
     }
-    else
-    {
-        bool found = false;
-        for (auto& other : students)
-        {
-            if (other.getId() == id) continue;
-            auto it2 = find_if(other.courses.begin(), other.courses.end(),
-                [cid](const Course& c) { return c.getId() == cid; });
-            if (it2 != other.courses.end())
-            {
-                cname = it2->getName();
-                cout << "Course already exists in another student. Using name: " << cname << endl;
-                found = true;
-                break;
-            }
-        }
 
-        if (!found)
-        {
-            cout << "Course Name: ";
-            cin.ignore();
-            getline(cin, cname);
-        }
+    if (cname.empty())
+    {
+        cout << "Course Name: ";
+        cin.ignore();
+        getline(cin, cname);
     }
 
     double grade;
-    cout << "Grade: ";
-    cin >> grade;
+
+    do
+    {
+        cout << "Grade (0-4): ";
+        cin >> grade;
+
+    } while (grade < 0 || grade > 4);
 
     s->addCourse(cid, cname, grade);
 }
 
 void Student::showCourses()
 {
-    if (students.empty())
-    {
-        cout << "No students available\n";
-        return;
-    }
+    map<int, vector<pair<string, double>>> courseStudents;
+    map<int, string> courseNames;
 
-    struct CourseInfo
+    for (auto& pair : students)
     {
-        string name;
-        vector<pair<string, double>> students; 
-    };
+        Student& s = pair.second;
 
-    vector<int> courseIds; 
-    vector<CourseInfo> courseInfos;
-
-    for (auto& s : students)
-    {
         for (auto& c : s.courses)
         {
-            auto it = find(courseIds.begin(), courseIds.end(), c.getId());
-            if (it != courseIds.end())
-            {
-                size_t idx = it - courseIds.begin();
-                courseInfos[idx].students.push_back({ s.getName(), c.getGrade() });
-            }
-            else
-            {
-                courseIds.push_back(c.getId());
-                CourseInfo ci;
-                ci.name = c.getName();
-                ci.students.push_back({ s.getName(), c.getGrade() });
-                courseInfos.push_back(ci);
-            }
+            courseNames[c.getId()] = c.getName();
+
+            courseStudents[c.getId()].push_back(
+                { s.getName(), c.getGrade() });
         }
     }
 
-    for (size_t i = 0; i < courseIds.size(); ++i)
+    for (auto& pair : courseStudents)
     {
-        int cid = courseIds[i];
-        auto& ci = courseInfos[i];
+        int cid = pair.first;
+        auto& list = pair.second;
 
         double sum = 0;
-        for (auto& p : ci.students) sum += p.second;
-        double avg = sum / ci.students.size();
 
-        cout << "Course ID: " << cid << " Name: " << ci.name << endl;
+        for (auto& p : list)
+            sum += p.second;
+
+        double avg = sum / list.size();
+
+        cout << "Course ID: " << cid
+            << " Name: " << courseNames[cid] << endl;
+
         cout << "\tStudents: ";
-        for (size_t j = 0; j < ci.students.size(); ++j)
+
+        for (size_t i = 0; i < list.size(); i++)
         {
-            cout << ci.students[j].first << " (" << ci.students[j].second << ")";
-            if (j != ci.students.size() - 1) cout << ", ";
+            cout << list[i].first
+                << " (" << list[i].second << ")";
+
+            if (i != list.size() - 1)
+                cout << ", ";
         }
+
         cout << " Average grade: " << avg << endl << endl;
     }
 }
@@ -232,6 +223,7 @@ void Student::updateStudent()
     cin >> id;
 
     Student* s = searchStudent(id);
+
     if (!s)
     {
         cout << "Student not found\n";
@@ -239,19 +231,23 @@ void Student::updateStudent()
     }
 
     string newName;
+
     cout << "Enter new name: ";
     cin.ignore();
     getline(cin, newName);
+
     s->setName(newName);
 }
 
 void Student::editOrRemoveCourse()
 {
     int id;
+
     cout << "Enter Student ID: ";
     cin >> id;
 
     Student* s = searchStudent(id);
+
     if (!s)
     {
         cout << "Student not found\n";
@@ -259,81 +255,112 @@ void Student::editOrRemoveCourse()
     }
 
     int cid;
+
     cout << "Enter Course ID: ";
     cin >> cid;
 
-    for (size_t i = 0; i < s->courses.size(); i++)
+    for (auto& c : s->courses)
     {
-        if (s->courses[i].getId() == cid)
+        if (c.getId() == cid)
         {
             int choice;
+
             cout << "1 Edit Grade\n2 Remove Course\nChoice: ";
             cin >> choice;
 
             if (choice == 1)
             {
                 double g;
-                cout << "New Grade: ";
-                cin >> g;
-                s->courses[i].setGrade(g);
+
+                do
+                {
+                    cout << "New Grade (0-4): ";
+                    cin >> g;
+
+                } while (g < 0 || g > 4);
             }
-            else
-            {
-                s->courses.erase(s->courses.begin() + i);
-            }
+
             return;
         }
     }
+
     cout << "Course not found\n";
 }
 
 void Student::sortByGPA()
 {
-    sort(students.begin(), students.end(),
-        [](Student a, Student b) { return a.getGpa() > b.getGpa(); });
-    cout << "Students sorted by GPA\n";
-}
+    vector<Student> temp;
 
+    for (auto& pair : students)
+        temp.push_back(pair.second);
+
+    sort(temp.begin(), temp.end(),
+        [](Student a, Student b)
+        {
+            return a.getGpa() > b.getGpa();
+        });
+
+    cout << "Students sorted by GPA\n";
+
+    for (auto& s : temp)
+        s.display();
+}
 
 void Student::saveToFile()
 {
     ofstream out("Students_Data.csv");
-    for (auto& s : students)
+
+    for (auto& pair : students)
     {
+        Student& s = pair.second;
+
         out << s.getId() << "," << s.getName();
+
         for (auto& c : s.courses)
-            out << "," << c.getId() << ":" << c.getName() << ":" << c.getGrade();
+            out << "," << c.getId()
+            << ":" << c.getName()
+            << ":" << c.getGrade();
+
         out << endl;
     }
-    out.close();
 }
 
 void Student::loadFromFile()
 {
     ifstream in("Students_Data.csv");
+
     if (!in) return;
 
     string line;
+
     while (getline(in, line))
     {
         if (line.empty()) continue;
 
         vector<string> entries;
         string temp;
+
         for (char ch : line)
         {
-            if (ch == ',') { entries.push_back(temp); temp = ""; }
+            if (ch == ',')
+            {
+                entries.push_back(temp);
+                temp = "";
+            }
             else temp += ch;
         }
+
         entries.push_back(temp);
 
         int id = stoi(entries[0]);
         string name = entries[1];
+
         Student s(id, name);
 
-        for (size_t i = 2; i < entries.size(); ++i)
+        for (size_t i = 2; i < entries.size(); i++)
         {
             string part = entries[i];
+
             size_t p1 = part.find(':');
             size_t p2 = part.find(':', p1 + 1);
 
@@ -341,10 +368,9 @@ void Student::loadFromFile()
             string cname = part.substr(p1 + 1, p2 - p1 - 1);
             double grade = stod(part.substr(p2 + 1));
 
-            s.courses.push_back(Course(cid, cname, grade));
+            s.courses.insert(Course(cid, cname, grade));
         }
 
-        students.push_back(s);
+        students[id] = s;
     }
-    in.close();
 }

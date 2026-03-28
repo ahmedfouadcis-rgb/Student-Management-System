@@ -18,9 +18,12 @@ public:
     int getId() const;
     string getName() const;
     double getGrade() const;
+
     void setGrade(double g);
 
     void display() const;
+
+    bool operator<(const Course& other) const;
 };
 
 #endif
