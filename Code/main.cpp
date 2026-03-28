@@ -79,7 +79,7 @@ int main()
             }
             break;
         case 10:
-            autoSave = true;
+            autoSave = !autoSave;
             break;
         case 11:
             students.saveToFile();
